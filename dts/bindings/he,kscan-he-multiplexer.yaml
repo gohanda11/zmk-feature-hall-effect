@@ -3,10 +3,10 @@
 
 description: Hall effect kscan controller that produces INPUT_HE_RC analog inputs in micrometers of height
 
-compatible: "he,kscan-direct-pulsed"
+compatible: "he,kscan-multiplexer"
 
 include: kscan.yaml
-#TODO: add default-calibration-min and default-calibration-max like in the multiplexer version
+
 properties:
   resolution:
     type: int
@@ -15,12 +15,14 @@ properties:
       - 8
       - 10
       - 12
-  pulse-read:
-    type: boolean
-  read-turn-on-time:
-    description: Time to wait before reading the key after turning it on
+  address-gpios:
+    description: address GPIOs ordered from LSB to MSB
+    type: phandle-array
+    required: true
+  address-to-read-delay:
+    description: Time to wait before reading the key after sending the address
     type: int
-    default: 100
+    default: 0
   wait-period-idle:
     description: Time between reads in milliseconds when no activity is detected
     type: int
@@ -31,9 +33,6 @@ properties:
     default: 1
   kscan-forwarder:
     description: kscan-forwarder to pass the kscan callback to
-    type: phandle
-  pulse-set-forwarder:
-    description: pulse-set-forwarder to pass the pulse set callback to
     type: phandle
   calibrate:
     description: Print the raw values to serial and don't send them to the input listener
@@ -48,14 +47,40 @@ properties:
       - 0xc02b2742
       - 0x3f404977
       - 0x3bd693e5
+  default-calibration-min:
+    description: Default minimum value to consider for calibration if not specified in the child binding
+    type: int
+    default: 0
+  default-calibration-max:
+    description: Default maximum value to consider for calibration if not specified in the child binding
+    type: int
+    default: 0
+  default-deadzone-top:
+    description: Default threshold to start producing events in micrometers from the top if not specified in the child binding
+    type: int
+    default: 250
+  default-deadzone-bottom:
+    description: Default threshold to pause producing events in micrometers from the bottom if not specified in the child binding
+    type: int
+    default: 250
 
 child-binding:
-  description: Per enable-gpio group configuration
+  description: Per adc group configuration
   properties:
-    enable-gpios:
+    io-channels:
+      description: ADC channel for this group
       type: phandle-array
+      required: true
     switch-pressed-is-higher:
       type: boolean
+    address-range-min:
+      description: Minimum address in this group(inclusive)
+      type: int
+      required: true
+    address-range-max:
+      description: Maximum address in this group(inclusive)
+      type: int
+      required: true
     switch-height:
       description: Height of the switch in micrometers
       type: int
@@ -64,10 +89,6 @@ child-binding:
   child-binding:
     description: Per key configuration
     properties:
-      io-channels:
-        description: ADC channel for this key
-        type: phandle-array
-        required: true
       deadzone-top:
         type: int
         description: Threshold to start producing events in micrometers from the top

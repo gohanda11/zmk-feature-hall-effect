@@ -13,20 +13,25 @@
 #include "drivers/kscan_forwarder.h"
 #include "drivers/pulse_set_forwarder.h"
 #include "input-event-codes.h"
-#include "adc.h"
+#include "adc_direct.h"
 // #include <zephyr/sys/util.h>
 
 #ifndef CONFIG_HE_ADC_CALIBRATION_DELAY
 #define CONFIG_HE_ADC_CALIBRATION_DELAY 2000000
 #endif
 
-LOG_MODULE_DECLARE(feature_hall_effect, CONFIG_HE_LOG_LEVEL);
+#ifndef HE_LOG_REGISTERED
+#define HE_LOG_REGISTERED
+    LOG_MODULE_REGISTER(feature_hall_effect, CONFIG_HE_LOG_LEVEL);
+#else
+    LOG_MODULE_DECLARE(feature_hall_effect, CONFIG_HE_LOG_LEVEL);
+#endif
 
 #define DT_DRV_COMPAT he_kscan_direct_pulsed
 
 static int init_adc(const struct device *dev) {
-    const struct kscan_he_config *conf = dev->config;
-    struct kscan_he_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
     // volatile void *api = conf->adc_groups[0].keys[0].adc.dev->api;
     for (int i = 0; i < conf->group_count; i++) {
         data->adc_groups[i].as.channels = 0;
@@ -53,8 +58,8 @@ static int init_adc(const struct device *dev) {
 }
 
 static int init_gpio(const struct device *dev) {
-    const struct kscan_he_config *conf = dev->config;
-    struct kscan_he_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
     if (!data->pulse_enabled)
         LOG_DBG("Pulse read disabled");
     for (int i = 0; i < conf->group_count; i++) {
@@ -88,7 +93,7 @@ static int init_gpio(const struct device *dev) {
 }
 
 static int set_all_gpio(const struct device *dev, int value) {
-    const struct kscan_he_config *conf = dev->config;
+    const struct kscan_he_direct_config *conf = dev->config;
     for (int i = 0; i < conf->group_count; i++) {
         const struct gpio_dt_spec gpio = conf->he_groups[i].enable_gpio;
         if (gpio.port == NULL) {
@@ -118,8 +123,8 @@ static int setup_pins(const struct device *dev) {
 }
 
 static void kscan_he_read_continue(const struct device *dev) {
-    const struct kscan_he_config *conf = dev->config;
-    struct kscan_he_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
 
     data->scan_time += conf->wait_period_press;
 
@@ -127,8 +132,8 @@ static void kscan_he_read_continue(const struct device *dev) {
 }
 
 static void kscan_he_read_end(const struct device *dev) {
-    struct kscan_he_data *data = dev->data;
-    const struct kscan_he_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
 
     data->scan_time += conf->wait_period_idle;
 
@@ -137,12 +142,12 @@ static void kscan_he_read_end(const struct device *dev) {
 }
 
 static int kscan_he_read(const struct device *dev) {
-    const struct kscan_he_config *conf = dev->config;
-    struct kscan_he_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
     // k_msleep(3000);
     // LOG_INF("pin high");
     for (int i = 0; i < conf->group_count; i++) {
-        const struct kscan_he_group_cfg group_cfg = conf->he_groups[i];
+        const struct kscan_he_direct_group_cfg group_cfg = conf->he_groups[i];
         int err;
         if (data->pulse_enabled) {
             int64_t before = k_uptime_ticks();
@@ -187,7 +192,7 @@ static int kscan_he_read(const struct device *dev) {
     int64_t now = conf->calibrate ? k_uptime_get() : 0;
     int16_t buf[conf->group_count*conf->he_groups[0].key_count];
     for (int i = 0; i < conf->group_count; i++) {
-        const struct kscan_he_group_cfg group_cfg = conf->he_groups[i];
+        const struct kscan_he_direct_group_cfg group_cfg = conf->he_groups[i];
         int8_t buffer_idx=0;
         for (int8_t channel = 0; channel < KSCAN_ADC_MAX_CHANNELS; channel++) {
             int8_t channel_mask = BIT(channel);
@@ -200,11 +205,11 @@ static int kscan_he_read(const struct device *dev) {
             
             if(!conf->calibrate){
                 int16_t key_height =
-                    kscan_adc_get_mapped_height(dev, i, key_j, raw_adc_value);
+                    kscan_direct_adc_get_mapped_height(dev, i, key_j, raw_adc_value);
                 const int16_t deadzone_top =
-                    kscan_adc_cfg_deadzone_top(dev, i, key_j);
+                    kscan_direct_adc_cfg_deadzone_top(dev, i, key_j);
                 const int16_t deadzone_bottom =
-                    kscan_adc_cfg_deadzone_bottom(dev, i, key_j);
+                    kscan_direct_adc_cfg_deadzone_bottom(dev, i, key_j);
                 if(key_height<0) key_height = 0;
                 if(key_height > max_height) key_height = max_height;
                 if(key_height <= max_height - deadzone_top && key_height > deadzone_bottom){
@@ -267,19 +272,19 @@ static int kscan_he_read(const struct device *dev) {
 
 static void kscan_adc_read_work_handler(struct k_work *work) {
     struct k_work_delayable *dwork = k_work_delayable_from_work(work);
-    struct kscan_he_data *data =
-        CONTAINER_OF(dwork, struct kscan_he_data, adc_read_work);
+    struct kscan_he_direct_data *data =
+        CONTAINER_OF(dwork, struct kscan_he_direct_data, adc_read_work);
     kscan_he_read(data->dev);
 }
 
 static void kscan_adc_calibrate_work_handler(struct k_work *work) {
     struct k_work_delayable *dwork = k_work_delayable_from_work(work);
-    struct kscan_he_data *data =
-        CONTAINER_OF(dwork, struct kscan_he_data, adc_calibration_work);
+    struct kscan_he_direct_data *data =
+        CONTAINER_OF(dwork, struct kscan_he_direct_data, adc_calibration_work);
 
     const struct device *dev = data->dev;
 
-    const struct kscan_he_config *conf = dev->config;
+    const struct kscan_he_direct_config *conf = dev->config;
     for(int i = 0; i < conf->group_count; i++){
         data->adc_groups[i].as.calibrate = true;
     }
@@ -288,7 +293,7 @@ static void kscan_adc_calibrate_work_handler(struct k_work *work) {
 
 static void kscan_he_pulse_set(const struct device *dev, bool pulse_enable){
     // const struct kscan_he_config *conf = dev->config;
-    struct kscan_he_data *data = dev->data;
+    struct kscan_he_direct_data *data = dev->data;
     if(data->pulse_enabled==pulse_enable){
         return;
     }
@@ -302,8 +307,8 @@ static void kscan_he_pulse_set(const struct device *dev, bool pulse_enable){
 
 // driver init function
 static int kscan_he_init(const struct device *dev) {
-    struct kscan_he_data *data = dev->data;
-    const struct kscan_he_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
     if(conf->calibrate){
         LOG_WRN("Calibration enabled, input will be sent to serial and will not generate input events");
     }
@@ -365,8 +370,8 @@ static int kscan_he_init(const struct device *dev) {
 // config function
 static int kscan_he_configure(const struct device *dev,
                               const kscan_callback_t callback) {
-    struct kscan_he_data *data = dev->data;
-    const struct kscan_he_config *conf = dev->config;
+    struct kscan_he_direct_data *data = dev->data;
+    const struct kscan_he_direct_config *conf = dev->config;
     if (!callback) {
         return -EINVAL;
     }
@@ -385,7 +390,7 @@ static int kscan_he_configure(const struct device *dev,
 // enable function
 static int kscan_he_enable(const struct device *dev) {
     LOG_INF("kscan adc enabled");
-    struct kscan_he_data *data = dev->data;
+    struct kscan_he_direct_data *data = dev->data;
     // const struct kscan_he_config *conf = dev->config;
     data->scan_time = k_uptime_get();
     if (!data->pulse_enabled) {
@@ -400,7 +405,7 @@ static int kscan_he_enable(const struct device *dev) {
 // disable function
 static int kscan_he_disable(const struct device *dev) {
     LOG_INF("kscan adc disabled");
-    struct kscan_he_data *data = dev->data;
+    struct kscan_he_direct_data *data = dev->data;
     k_work_cancel_delayable(&data->adc_read_work);
     set_all_gpio(dev, 0);
     return 0;
@@ -438,7 +443,7 @@ static const struct kscan_driver_api kscan_he_api = {
 #define IMPLY(cond1, cond2) (!(cond1) || (cond2))
 
 #define KSCAN_GROUP_DATA_INIT(node_id, inst_id)                                \
-    (struct kscan_adc_group_data) {                                     \
+    (struct kscan_direct_adc_group_data) {                                     \
         .adc_buffer = adc_buffer_##inst_id##_##node_id,                        \
         .key_channels = key_channels_##inst_id##_##node_id                     \
     }
@@ -454,7 +459,7 @@ static const struct kscan_driver_api kscan_he_api = {
                          DT_IO_CHANNELS_INPUT(node_id))
 
 #define KSCAN_KEY_INIT(node_id)                                                \
-    (const struct kscan_he_key_cfg) {                                                \
+    (const struct kscan_he_direct_key_cfg) {                                                \
         .adc = ADC_DT_SPEC_GET_1(node_id),                                     \
         .deadzone_top = DT_PROP(node_id, deadzone_top),                         \
         .deadzone_bottom = DT_PROP(node_id, deadzone_bottom),                    \
@@ -463,7 +468,7 @@ static const struct kscan_driver_api kscan_he_api = {
     }
 
 #define KSCAN_GROUP_INIT(node_id, inst_id)                                     \
-    (const struct kscan_he_group_cfg) {                                              \
+    (const struct kscan_he_direct_group_cfg) {                                              \
         .enable_gpio = GPIO_DT_SPEC_GET_OR(                                    \
             node_id, enable_gpios, ({.port = NULL, .dt_flags = 0, .pin = 0})), \
         .switch_pressed_is_higher =                                            \
@@ -481,18 +486,18 @@ static const struct kscan_driver_api kscan_he_api = {
         node_id, CHILD_COUNT, (+))] = {0};                                     \
     static int8_t key_channels_##inst_id##_##node_id[KSCAN_ADC_MAX_CHANNELS] = \
         {0};                                                                   \
-    static struct kscan_he_key_cfg keys_##inst_id##_##node_id[] = {            \
+    static struct kscan_he_direct_key_cfg keys_##inst_id##_##node_id[] = {            \
         DT_FOREACH_CHILD_SEP(node_id, KSCAN_KEY_INIT, (, ))};
 
 #define KSCAN_HE_INIT(n)                                                       \
     DT_INST_FOREACH_CHILD_VARGS(n, GROUP_ALLOC, n)                             \
-    static const struct kscan_he_group_cfg kscan_he_group_cfg_##n[] = {        \
+    static const struct kscan_he_direct_group_cfg kscan_he_group_cfg_##n[] = {        \
         DT_INST_FOREACH_CHILD_SEP_VARGS(n, KSCAN_GROUP_INIT, (, ), n)};        \
-    static struct kscan_adc_group_data kscan_adc_group_data_##n[] = {          \
+    static struct kscan_direct_adc_group_data kscan_adc_group_data_##n[] = {          \
         DT_INST_FOREACH_CHILD_SEP_VARGS(n, KSCAN_GROUP_DATA_INIT, (, ), n)};   \
-    static struct kscan_he_data kscan_he_data_##n = {                          \
+    static struct kscan_he_direct_data kscan_he_data_##n = {                          \
         .adc_groups = kscan_adc_group_data_##n};                               \
-    static const struct kscan_he_config kscan_he_config_##n = {                \
+    static const struct kscan_he_direct_config kscan_he_config_##n = {                \
         .resolution = DT_INST_PROP(n, resolution),                             \
         .pulse_read = DT_INST_PROP(n, pulse_read),                             \
         .read_turn_on_time = DT_INST_PROP(n, read_turn_on_time),               \

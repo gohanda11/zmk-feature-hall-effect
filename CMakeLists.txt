@@ -5,7 +5,8 @@ add_subdirectory(src/input_processors/)
 add_subdirectory(src/input/)
 add_subdirectory(src/behaviors/)
 add_subdirectory(src/hid/) # copied and modified from https://github.com/badjeff/zmk-hid-io
-target_sources(app PRIVATE src/adc.c)
+target_sources(app PRIVATE src/adc_direct.c)
+target_sources(app PRIVATE src/adc_multiplexer.c)
 
 zephyr_include_directories(include)
 zephyr_include_directories(include/he)

@@ -5,4 +5,12 @@ config HE_KSCAN_DIRECT_PULSED
     select ADC
     select KSCAN
 
+config HE_KSCAN_MULTIPLEXER
+    bool "Enable HE KSCAN multiplexer"
+    default y
+    depends on DT_HAS_HE_KSCAN_MULTIPLEXER_ENABLED
+    select ADC
+    select KSCAN
+
+
 rsource "forwarders/Kconfig"
