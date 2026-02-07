@@ -192,7 +192,7 @@ static int kscan_he_read(const struct device *dev) {
     // k_msleep(3000);
     // LOG_INF("pin high");
     bool pressed = false;
-    for (int i = data->global_min_address; i<data->global_max_address; i++) {
+    for (int i = data->global_min_address; i<=data->global_max_address; i++) {
 
         int err = set_address(dev, i);
         if (err) {
@@ -440,7 +440,7 @@ static const struct kscan_driver_api kscan_he_api = {
         BUILD_ASSERT(DT_PROP(node_id, address_range_max) >=                             \
                      DT_PROP(node_id, address_range_min),                      \
                  "address_range_max must be >= address_range_min");            \
-    BUILD_ASSERT(DT_PROP(node_id, address_range_min)>0, "address_range_min must be > 0"); \
+    BUILD_ASSERT(DT_PROP(node_id, address_range_min)>=0, "address_range_min must be >= 0"); \
     BUILD_ASSERT(DT_PROP(node_id, address_range_max) <= KSCAN_ADC_MAX_CHANNELS, "address_range_max must be <= KSCAN_ADC_MAX_CHANNELS"); \
     static struct kscan_he_mux_key_cfg keys_##inst_id##_##node_id[] = {            \
         DT_FOREACH_CHILD_SEP_VARGS(node_id, KSCAN_KEY_INIT, (, ))}; 
