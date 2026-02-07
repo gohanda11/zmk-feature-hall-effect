@@ -404,9 +404,9 @@ static void input_handler(const struct input_listener_config *config,
                  .layer_override_data = {DT_INST_FOREACH_CHILD_SEP_VARGS(n, IL_OVERRIDE_DATA,      \
                                                                          (, ), n)},                \
              };                                                                                    \
-         void he_input_handler_##n(struct input_event *evt) {                                         \
+         void he_input_handler_##n(struct input_event *evt, void *user_data) {                          \
              input_handler(&config_##n, &data_##n, evt);                                           \
-         } INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_INST_PHANDLE(n, device)), he_input_handler_##n);),  \
+         } INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_INST_PHANDLE(n, device)), he_input_handler_##n, NULL);),  \
         ())
 
 DT_INST_FOREACH_STATUS_OKAY(IL_INST)
