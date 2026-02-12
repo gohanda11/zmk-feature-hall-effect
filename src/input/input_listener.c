@@ -330,7 +330,7 @@ static void input_handler(const struct input_listener_config *config,
             }
         }
 
-        zmk_endpoint_send_mouse_report();
+        zmk_endpoints_send_mouse_report();
         zmk_hid_mouse_scroll_set(0, 0);
         zmk_hid_mouse_movement_set(0, 0);
 
@@ -406,7 +406,7 @@ static void input_handler(const struct input_listener_config *config,
              };                                                                                    \
          void he_input_handler_##n(struct input_event *evt, void *user_data) {                          \
              input_handler(&config_##n, &data_##n, evt);                                           \
-         } INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_INST_PHANDLE(n, device)), he_input_handler_##n, NULL);),  \
+         } INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_INST_PHANDLE(n, device)), he_input_handler_##n);),  \
         ())
 
 DT_INST_FOREACH_STATUS_OKAY(IL_INST)
