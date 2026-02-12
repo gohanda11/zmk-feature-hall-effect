@@ -16,7 +16,7 @@
 // #include <zephyr/sys/util.h>
 
 #ifndef CONFIG_HE_ADC_CALIBRATION_DELAY
-#define CONFIG_HE_ADC_CALIBRATION_DELAY 2000000
+#define CONFIG_HE_ADC_CALIBRATION_DELAY 2000
 #endif
 
 #ifndef HE_LOG_REGISTERED
