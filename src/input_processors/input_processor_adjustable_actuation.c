@@ -105,13 +105,20 @@ int adj_act_set_key_state(const struct device *dev, struct input_event *event,
 }
 
 static int adj_act_handle_event(const struct device *dev,
-                                struct input_event *event, uint32_t key_idx,
+                                struct input_event *event, uint32_t param1,
                                 uint32_t param2,
                                 struct zmk_input_processor_state *state) {
     const struct adj_act_config *conf = dev->config;
     struct adj_act_data *data = dev->data;
     if (event->type != INPUT_EV_HE)
         return ZMK_INPUT_PROC_CONTINUE;
+    // Derive per-key index from event code: param1 = columns per group (0 defaults to 8)
+    uint32_t cols_per_group = param1 > 0 ? param1 : 8;
+    uint32_t key_idx = INV_INPUT_HE_ROW(event->code) * cols_per_group +
+                       INV_INPUT_HE_COL(event->code);
+    if (key_idx >= (uint32_t)conf->keymap_size) {
+        return ZMK_INPUT_PROC_STOP;
+    }
     enum direction_e excluded_dir;
     int trigger_offset;
     bool pressed;
